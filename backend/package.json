@@ -1,0 +1,90 @@
+{
+  "name": "worker-requests-backend",
+  "version": "1.0.0",
+  "private": true,
+  "description": "نظام طلبات وتواصل العمال — Backend (NestJS + PostgreSQL)",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "build": "nest build",
+    "start": "node dist/main.js",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main.js",
+    "lint": "tsc --noEmit -p tsconfig.json",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
+    "test:migrations": "node scripts/verify-migrations.mjs",
+    "prisma:generate": "prisma generate",
+    "migrate:deploy": "prisma migrate deploy",
+    "migrate:dev": "prisma migrate dev",
+    "seed:dev": "ts-node --transpile-only prisma/seed.dev.ts",
+    "bootstrap:admin": "node dist/cli/bootstrap-admin.js",
+    "postinstall": "prisma generate",
+    "test:unit": "jest src",
+    "test:e2e": "jest test"
+  },
+  "dependencies": {
+    "@nestjs/common": "^11.1.6",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.6",
+    "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/schedule": "^6.0.0",
+    "@nestjs/serve-static": "^5.0.3",
+    "@nestjs/swagger": "^11.2.0",
+    "@nestjs/throttler": "^6.4.0",
+    "@prisma/client": "^6.19.3",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.2",
+    "cookie-parser": "^1.4.7",
+    "helmet": "^8.1.0",
+    "multer": "^2.4.0",
+    "prisma": "^6.19.3",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2",
+    "sharp": "^0.34.5",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.3.15",
+    "@electric-sql/pglite-socket": "^0.0.20",
+    "@nestjs/cli": "^11.0.10",
+    "@nestjs/schematics": "^11.0.7",
+    "@nestjs/testing": "^11.1.6",
+    "@types/cookie-parser": "^1.4.9",
+    "@types/express": "^5.0.3",
+    "@types/jest": "^29.5.14",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.18.0",
+    "@types/supertest": "^6.0.3",
+    "@types/web-push": "^3.6.4",
+    "jest": "^29.7.0",
+    "supertest": "^7.1.4",
+    "ts-jest": "^29.4.4",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.9.3"
+  },
+  "jest": {
+    "moduleFileExtensions": [
+      "js",
+      "json",
+      "ts"
+    ],
+    "rootDir": ".",
+    "testRegex": "(src|test)/.*.(spec|e2e-spec).ts$",
+    "transform": {
+      "^.+.ts$": "ts-jest"
+    },
+    "testEnvironment": "node",
+    "collectCoverageFrom": [
+      "src/**/*.ts",
+      "!src/main.ts",
+      "!src/**/*.module.ts",
+      "!src/**/*.dto.ts"
+    ],
+    "maxWorkers": 1,
+    "testTimeout": 60000
+  }
+}

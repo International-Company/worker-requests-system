@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Builds
+dist/
+dev-dist/
+coverage/
+*.tsbuildinfo
+
+# Environment / secrets — never commit
+.env
+.env.*
+!.env.example
+*.pem
+*service-account*.json
+
+# Logs & OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+
+# Editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
