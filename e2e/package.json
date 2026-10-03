@@ -1,0 +1,14 @@
+{
+  "name": "worker-requests-e2e",
+  "private": true,
+  "type": "module",
+  "description": "Browser end-to-end test (real Chrome, real service worker, real Web Push) against the full stack",
+  "scripts": {
+    "test": "node run.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.55.0",
+    "sharp": "^0.34.5",
+    "web-push": "^3.6.7"
+  }
+}
