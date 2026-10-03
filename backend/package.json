@@ -24,7 +24,8 @@
     "bootstrap:admin": "node dist/cli/bootstrap-admin.js",
     "postinstall": "prisma generate",
     "test:unit": "jest src",
-    "test:e2e": "jest test"
+    "test:e2e": "jest test",
+    "vapid:generate": "web-push generate-vapid-keys"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
