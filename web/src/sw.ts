@@ -147,7 +147,7 @@ self.addEventListener('pushsubscriptionchange', (event) => {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/json' },
-        body: JSON.stringify(sub.toJSON()),
+        body: JSON.stringify({ endpoint: sub.endpoint, keys: sub.toJSON().keys }),
       });
     })().catch(() => undefined),
   );

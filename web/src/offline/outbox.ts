@@ -21,7 +21,8 @@ export async function enqueueRequest(input: {
   title: string;
   targetType: TargetType;
   workerIds: string[];
-  images: Array<Omit<OutboxImage, 'attachmentId'>>;
+  /** attachmentId is set for images already uploaded in the background while the form was open. */
+  images: OutboxImage[];
 }): Promise<OutboxRequest> {
   const entry: OutboxRequest = { ...input, status: 'pending', attempts: 0, createdAt: Date.now() };
   await db.outbox.put(entry);
@@ -39,18 +40,16 @@ export async function sendOne(idempotencyKey: string): Promise<SendOutcome> {
   if (!entry) return { kind: 'failed', message: '' };
   await db.outbox.update(idempotencyKey, { status: 'sending' });
   try {
-    const attachmentIds: string[] = [];
-    for (const img of entry.images) {
-      if (!img.attachmentId) {
-        const form = new FormData();
-        form.append('clientUploadId', img.clientUploadId);
-        form.append('file', img.blob, img.name);
-        const uploaded = await api<{ id: string }>('/attachments', { method: 'POST', body: form });
-        img.attachmentId = uploaded.id;
-        await db.outbox.update(idempotencyKey, { images: entry.images }); // remember progress
-      }
-      attachmentIds.push(img.attachmentId);
-    }
+    // Upload the remaining images in parallel; each finished one is remembered (resume after network loss).
+    await Promise.all(
+      entry.images
+        .filter((img) => !img.attachmentId)
+        .map(async (img) => {
+          img.attachmentId = await uploadImage(img.clientUploadId, img.blob, img.name);
+          await db.outbox.update(idempotencyKey, { images: entry.images });
+        }),
+    );
+    const attachmentIds = entry.images.map((img) => img.attachmentId!);
     const request = await api<RequestView>('/requests', {
       method: 'POST',
       body: {
@@ -75,6 +74,14 @@ export async function sendOne(idempotencyKey: string): Promise<SendOutcome> {
     if (transient) return { kind: 'queued', reason: err.isNetwork ? 'offline' : 'server' };
     return { kind: 'failed', message: err.message };
   }
+}
+
+/** Idempotent per clientUploadId: re-uploading the same image returns the same attachment. */
+export async function uploadImage(clientUploadId: string, blob: Blob, name: string): Promise<string> {
+  const form = new FormData();
+  form.append('clientUploadId', clientUploadId);
+  form.append('file', blob, name);
+  return (await api<{ id: string }>('/attachments', { method: 'POST', body: form })).id;
 }
 
 /** Retries every pending (non-permanent) entry of this manager, oldest first. Single flight. */

@@ -60,7 +60,8 @@ export function useWorkerSync() {
     };
     window.addEventListener('online', onOnline);
     document.addEventListener('visibilitychange', onVisible);
-    const interval = setInterval(() => void sync(), 60_000);
+    // Push triggers an immediate sync; this is only the fallback while the app is open.
+    const interval = setInterval(() => void sync(), 20_000);
     const off = onSwMessage((msg) => {
       if (msg.type === 'PUSH_RECEIVED' || msg.type === 'SYNCED') void sync();
       if (msg.type === 'NAVIGATE' && msg.url) navigate(msg.url);

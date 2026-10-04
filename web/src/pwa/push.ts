@@ -50,7 +50,13 @@ async function subscribe(vapidPublicKey: string): Promise<void> {
   }
   sub ??= await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
   await setMeta('push.vapidPublicKey', vapidPublicKey); // used by the SW on pushsubscriptionchange
-  await post('/push/subscribe', sub.toJSON() as Record<string, unknown>);
+  await post('/push/subscribe', subscriptionBody(sub));
+}
+
+/** Only endpoint + encryption keys are needed by the server. */
+export function subscriptionBody(sub: PushSubscription): { endpoint: string; keys: { p256dh: string; auth: string } } {
+  const json = sub.toJSON();
+  return { endpoint: sub.endpoint, keys: { p256dh: json.keys?.p256dh ?? '', auth: json.keys?.auth ?? '' } };
 }
 
 export async function disablePushOnThisDevice(): Promise<void> {

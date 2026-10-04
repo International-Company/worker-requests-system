@@ -8,6 +8,8 @@ import { notificationText } from './notification-texts';
 
 /** Transient push failures are retried with exponential backoff, at most this many attempts. */
 export const MAX_PUSH_ATTEMPTS = 3;
+/** Parallel pushes per dispatch (each needs a DB connection + an HTTPS call to the push service). */
+const DISPATCH_CONCURRENCY = 8;
 const BACKOFF_SECONDS = [30, 120, 600];
 
 /** Alerting types keep the notification on screen until the worker interacts with it. */
@@ -52,10 +54,18 @@ export class NotificationsService implements BeforeApplicationShutdown {
     while (this.inFlight.size) await Promise.allSettled([...this.inFlight]);
   }
 
+  /** Sends to all recipients in parallel (bounded), so "all workers" requests arrive at once. */
   async dispatch(recipientIds: string[], type: NotificationType): Promise<void> {
-    for (const recipientId of recipientIds) {
-      await this.notifyRecipient(recipientId, type);
-    }
+    let next = 0;
+    const worker = async () => {
+      while (next < recipientIds.length) {
+        const id = recipientIds[next++];
+        await this.notifyRecipient(id, type).catch((e) =>
+          this.logger.error(`Notification to recipient ${id} failed (${type})`, (e as Error).stack),
+        );
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(DISPATCH_CONCURRENCY, recipientIds.length) }, worker));
   }
 
   async notifyRecipient(recipientId: string, type: NotificationType): Promise<NotificationStatus> {

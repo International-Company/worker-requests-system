@@ -2,7 +2,7 @@ import { Body, Controller, Delete, Get, HttpCode, Post } from '@nestjs/common';
 import { ApiProperty, ApiTags } from '@nestjs/swagger';
 import { Role } from '@prisma/client';
 import { Type } from 'class-transformer';
-import { IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
+import { IsNumber, IsOptional, IsString, IsUrl, MaxLength, ValidateNested } from 'class-validator';
 import { AuthUser } from '../common/auth/auth-user';
 import { CurrentUser, Roles } from '../common/auth/decorators';
 import { DevicesService } from './devices.service';
@@ -29,6 +29,12 @@ class SubscribeDto {
   @ValidateNested()
   @Type(() => PushKeysDto)
   keys: PushKeysDto;
+
+  /** Part of PushSubscription.toJSON() in every browser (usually null). Accepted, not stored. */
+  @ApiProperty({ required: false, nullable: true, type: Number })
+  @IsOptional()
+  @IsNumber()
+  expirationTime?: number | null;
 }
 
 class UnsubscribeDto {

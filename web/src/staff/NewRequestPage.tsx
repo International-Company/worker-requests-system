@@ -7,12 +7,12 @@ import { PresenceLabel } from '../components/Presence';
 import { useToast } from '../components/Toast';
 import { Button, Card, cx, ErrorBox, Field, Input, PageHeader, Spinner } from '../components/ui';
 import { t } from '../i18n';
-import { api, attachmentUrl, errorMessage, patch } from '../lib/api';
+import { attachmentUrl, errorMessage, patch } from '../lib/api';
 import { uuid } from '../lib/device';
 import { ACCEPTED_TYPES, compressImage, ImageRejected, MAX_IMAGES } from '../lib/image-compress';
 import type { RequestView, TargetType } from '../lib/types';
 import { db } from '../offline/db';
-import { enqueueRequest, sendOne } from '../offline/outbox';
+import { enqueueRequest, sendOne, uploadImage } from '../offline/outbox';
 import { requestBackgroundSync } from '../pwa/sw-bridge';
 import { useRequest, useWorkers } from './queries';
 
@@ -47,6 +47,26 @@ export function NewRequestPage() {
   const draftLoaded = useRef(false);
   // Stable key for this submission: double clicks / retries can never create two requests.
   const idempotencyKey = useRef(uuid());
+  // Background uploads started as soon as an image is picked (key → attachment id, or null if it failed).
+  const preUploads = useRef(new Map<string, Promise<string | null>>());
+
+  /** Starts uploading right away so pressing "إرسال" only has to create the request. */
+  function preUpload(key: string, blob: Blob, name: string) {
+    if (!navigator.onLine || preUploads.current.has(key)) return;
+    preUploads.current.set(key, uploadImage(key, blob, name).catch(() => null));
+  }
+
+  /** Waits for the background uploads of these images; returns the ids that finished. */
+  async function uploadedIds(keys: string[]): Promise<Map<string, string>> {
+    const done = new Map<string, string>();
+    await Promise.all(
+      keys.map(async (key) => {
+        const id = await preUploads.current.get(key);
+        if (id) done.set(key, id);
+      }),
+    );
+    return done;
+  }
 
   // Edit mode: load the request.
   useEffect(() => {
@@ -67,6 +87,7 @@ export function NewRequestPage() {
       setTargetType(d.targetType);
       setSelected(d.workerIds);
       setImages(d.images.map((i) => ({ key: i.clientUploadId, blob: i.blob, name: i.name, preview: URL.createObjectURL(i.blob) })));
+      d.images.forEach((i) => preUpload(i.clientUploadId, i.blob, i.name));
       toast.info(t.requests.draftRestored);
     });
   }, [editing, user, toast]);
@@ -110,9 +131,9 @@ export function NewRequestPage() {
       }
       try {
         const { blob, name } = await compressImage(file);
-        setImages((prev) =>
-          prev.length >= MAX_IMAGES ? prev : [...prev, { key: uuid(), blob, name, preview: URL.createObjectURL(blob) }],
-        );
+        const key = uuid();
+        setImages((prev) => (prev.length >= MAX_IMAGES ? prev : [...prev, { key, blob, name, preview: URL.createObjectURL(blob) }]));
+        preUpload(key, blob, name);
       } catch (e) {
         setError(e instanceof ImageRejected ? t.requests.invalidImage : t.common.genericError);
       }
@@ -126,17 +147,11 @@ export function NewRequestPage() {
     setError(null);
     try {
       if (editing && existing.data) {
-        // Edit: upload new images (idempotent), then PATCH the request.
-        const ids: string[] = [];
-        for (const img of images) {
-          if (img.existingId) ids.push(img.existingId);
-          else {
-            const form = new FormData();
-            form.append('clientUploadId', img.key);
-            form.append('file', img.blob!, img.name ?? 'image.jpg');
-            ids.push((await api<{ id: string }>('/attachments', { method: 'POST', body: form })).id);
-          }
-        }
+        // Edit: new images are usually already uploaded in the background; upload any missing ones in parallel.
+        const pre = await uploadedIds(images.filter((i) => !i.existingId).map((i) => i.key));
+        const ids = await Promise.all(
+          images.map((img) => img.existingId ?? pre.get(img.key) ?? uploadImage(img.key, img.blob!, img.name ?? 'image.jpg')),
+        );
         await patch<RequestView>(`/requests/${existing.data.id}`, { title: title.trim(), attachmentIds: ids });
         toast.success(t.requests.edited);
         void qc.invalidateQueries({ queryKey: ['request'] });
@@ -145,14 +160,15 @@ export function NewRequestPage() {
         return;
       }
 
-      // New: persist to the outbox first, then try to deliver now.
+      // New: persist to the outbox first (never lost), then deliver now.
+      const pre = await uploadedIds(images.map((i) => i.key));
       await enqueueRequest({
         userId: user.id,
         idempotencyKey: idempotencyKey.current,
         title: title.trim(),
         targetType,
         workerIds: targetType === 'ALL' ? [] : selected,
-        images: images.map((i) => ({ clientUploadId: i.key, blob: i.blob!, name: i.name ?? 'image.jpg' })),
+        images: images.map((i) => ({ clientUploadId: i.key, blob: i.blob!, name: i.name ?? 'image.jpg', attachmentId: pre.get(i.key) })),
       });
       await db.drafts.delete(DRAFT_ID);
       const outcome = await sendOne(idempotencyKey.current);

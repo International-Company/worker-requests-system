@@ -74,11 +74,11 @@ describe('Authentication & authorization (e2e)', () => {
       try {
         const c = h.anonymous();
         const statuses: number[] = [];
-        for (let i = 0; i < 11; i++) {
+        for (let i = 0; i < 31; i++) {
           statuses.push((await c.post('/api/auth/login', { pin: '9999', deviceKey: randomUUID() })).status);
         }
-        expect(statuses.slice(0, 10).every((s) => s === 401)).toBe(true);
-        expect(statuses[10]).toBe(429);
+        expect(statuses.slice(0, 30).every((s) => s === 401)).toBe(true);
+        expect(statuses[30]).toBe(429);
       } finally {
         process.env.THROTTLE_DISABLED = 'true';
       }

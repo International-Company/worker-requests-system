@@ -203,7 +203,8 @@ export function testImage(width = 2400, height = 1600, format: 'png' | 'jpeg' = 
 
 /** Subscribes the logged-in worker's browser to (fake) Web Push. */
 export async function subscribe(client: Client, endpoint = `https://push.example.com/${randomUUID()}`) {
-  const res = await client.post('/api/push/subscribe', { endpoint, keys: { p256dh: 'p'.repeat(87), auth: 'a'.repeat(22) } });
+  // Same shape as PushSubscription.toJSON() in real browsers, including expirationTime.
+  const res = await client.post('/api/push/subscribe', { endpoint, expirationTime: null, keys: { p256dh: 'p'.repeat(87), auth: 'a'.repeat(22) } });
   if (res.status !== 204) throw new Error(`subscribe failed ${res.status} ${JSON.stringify(res.body)}`);
   return endpoint;
 }

@@ -11,10 +11,11 @@ import { LoginDto } from './dto/auth.dto';
 import { clearSessionCookie, setSessionCookie } from './session-cookie';
 
 /**
- * Brute-force protection without account lock-out: a 4-digit PIN space is small,
- * so login is tightly rate-limited per client IP, per minute and per hour.
+ * Brute-force protection without account lock-out: login is rate-limited per client IP,
+ * per minute and per hour. Sized so a whole team logging in from one company Wi-Fi
+ * (one shared public IP) is not blocked, while a 4-digit space still cannot be swept quickly.
  */
-export const LOGIN_THROTTLE = { default: { limit: 10, ttl: 60_000 }, hourly: { limit: 60, ttl: 3_600_000 } };
+export const LOGIN_THROTTLE = { default: { limit: 30, ttl: 60_000 }, hourly: { limit: 200, ttl: 3_600_000 } };
 
 @ApiTags('auth')
 @Controller('auth')
